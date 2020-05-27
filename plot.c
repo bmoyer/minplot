@@ -5,6 +5,8 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include "linked_list.h"
+
 #define BATCH_SIZE 1000000
 
 pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -13,61 +15,6 @@ pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
 
 int data[BATCH_SIZE];
 int stdin_buffer_length = 0;
-
-typedef struct node {
-    int val;
-    struct node* next;
-} node;
-
-node* createNode(int val) {
-    node* n = malloc(sizeof(node));
-    n->val = val;
-    n->next = NULL;
-    return n;
-}
-
-node* head = NULL;
-node* tail = NULL;
-
-void append(int val) {
-    node* new_tail = createNode(val);
-
-    if(tail != NULL) {
-        tail->next = new_tail;
-    }
-
-    tail = new_tail;
-
-    if(head == NULL) {
-        head = tail;
-    }
-}
-
-void delete_list(node** n) {
-    node* pn = *n;
-    while(pn != NULL) {
-        node* tmp = pn->next;
-        free(pn);
-        pn = tmp;
-    }
-    *n = NULL;
-}
-
-void print_list(node* n) {
-    while(n != NULL) {
-        printf("Node val: %d\n", n->val);
-        n = n->next;
-    }
-}
-
-int list_length(node* n) {
-    int len = 0;
-    while(n != NULL) {
-        len++;
-        n = n->next;
-    }
-    return len;
-}
 
 void* read_stdin_thread(void* vargp) {
     char* line = NULL;
@@ -84,19 +31,22 @@ void* read_stdin_thread(void* vargp) {
     return NULL;
 }
 
-void draw_plot() {
-    printf("Linked list length: %d\n", list_length(head));
-    //print_list(head);
+void draw_plot(node* n) {
+    printf("Linked list length: %d\n", list_length(n));
+    //print_list(n);
 }
 
 int main() {
+    node* head = NULL;
+    node* tail = NULL;
+
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, read_stdin_thread, NULL);
 
     int mydata[BATCH_SIZE];
     int mybufsize = 0;
     while(true) {
-        // memcpy data from buffer into local buffer, reset size
+        // Copy data from shared buffer into local buffer, reset size
         pthread_mutex_lock(&buffer_mutex);
         memcpy(mydata, data, stdin_buffer_length * sizeof(int));
         mybufsize = stdin_buffer_length;
@@ -104,14 +54,18 @@ int main() {
         pthread_cond_signal(&cond1);
         pthread_mutex_unlock(&buffer_mutex);
 
+        // Append new data to list
         for(int i = 0; i < mybufsize; i++) {
-            append(mydata[i]);
+            int* pval = malloc(sizeof(int));
+            *pval = mydata[i];
+            append(&head, &tail, (void*)pval);
         }
 
-        draw_plot();
-        sleep(1);
+        // Update the UI
+        draw_plot(head);
 
         // Sleep for remainder of time slice
+        sleep(1);
     }
 
     pthread_join(thread_id, NULL);
