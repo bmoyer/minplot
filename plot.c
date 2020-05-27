@@ -22,29 +22,36 @@ typedef struct node {
 node* createNode(int val) {
     node* n = malloc(sizeof(node));
     n->val = val;
+    n->next = NULL;
     return n;
 }
 
-node head;
-node* tail = &head;
+node* head = NULL;
+node* tail = NULL;
 
 void append(int val) {
-    node* new_tail = malloc(sizeof(node));
-    new_tail->val = val;
-    new_tail->next = NULL;
+    node* new_tail = createNode(val);
 
-    tail->next = new_tail;
+    if(tail != NULL) {
+        tail->next = new_tail;
+    }
+
     tail = new_tail;
-}
 
-/*
-void delete_list(node* n) {
-    while(n != NULL) {
-        node* tmp = n;
-
+    if(head == NULL) {
+        head = tail;
     }
 }
-*/
+
+void delete_list(node** n) {
+    node* pn = *n;
+    while(pn != NULL) {
+        node* tmp = pn->next;
+        free(pn);
+        pn = tmp;
+    }
+    *n = NULL;
+}
 
 void print_list(node* n) {
     while(n != NULL) {
@@ -78,12 +85,11 @@ void* read_stdin_thread(void* vargp) {
 }
 
 void draw_plot() {
-    printf("Linked list length: %d\n", list_length(&head));
-    //print_list(&head);
+    printf("Linked list length: %d\n", list_length(head));
+    //print_list(head);
 }
 
 int main() {
-    head.next = NULL;
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, read_stdin_thread, NULL);
 
