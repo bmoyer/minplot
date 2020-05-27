@@ -1,3 +1,10 @@
 #!/usr/bin/env bash
 
-for i in `seq 1 1000`; do echo $i; sleep 0.1s; done;
+COUNT=1000
+if [ $# -eq 1 ]
+    then
+     COUNT=$1
+fi
+
+#for i in `seq 1 $COUNT`; do echo $i; sleep 0.0s; done;
+for i in `seq 1 $COUNT`; do echo $i; done;
