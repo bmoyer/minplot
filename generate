@@ -6,5 +6,4 @@ if [ $# -eq 1 ]
      COUNT=$1
 fi
 
-#for i in `seq 1 $COUNT`; do echo $i; sleep 0.0s; done;
-for i in `seq 1 $COUNT`; do echo $i; done;
+for (( i = 0; i <= $COUNT; i++)); do echo $i; done;

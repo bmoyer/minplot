@@ -6,10 +6,15 @@ typedef struct node {
     struct node* next;
 } node;
 
+typedef struct linked_list {
+    node* head;
+    node* tail;
+} linked_list;
+
 node* create_node(void* val);
-void append(node** head, node** tail, void* val);
-void delete_list(node** head, node** tail);
-void print_list(node* n);
-int list_length(node* n);
+void append(linked_list* list, void* val);
+void delete_list(linked_list* list);
+void print_list(linked_list* list);
+int list_length(linked_list* list);
 
 #endif /* LINKED_LIST_H */

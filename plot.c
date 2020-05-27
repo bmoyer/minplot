@@ -31,38 +31,37 @@ void* read_stdin_thread(void* vargp) {
     return NULL;
 }
 
-void draw_plot(node* n) {
+void draw_plot(linked_list* n) {
     printf("Linked list length: %d\n", list_length(n));
     //print_list(n);
 }
 
 int main() {
-    node* head = NULL;
-    node* tail = NULL;
-
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, read_stdin_thread, NULL);
 
     int mydata[BATCH_SIZE];
-    int mybufsize = 0;
+    int data_count = 0;
+    linked_list list;
+
     while(true) {
         // Copy data from shared buffer into local buffer, reset size
         pthread_mutex_lock(&buffer_mutex);
         memcpy(mydata, data, stdin_buffer_length * sizeof(int));
-        mybufsize = stdin_buffer_length;
+        data_count = stdin_buffer_length;
         stdin_buffer_length = 0;
         pthread_cond_signal(&cond1);
         pthread_mutex_unlock(&buffer_mutex);
 
         // Append new data to list
-        for(int i = 0; i < mybufsize; i++) {
+        for(int i = 0; i < data_count; i++) {
             int* pval = malloc(sizeof(int));
             *pval = mydata[i];
-            append(&head, &tail, (void*)pval);
+            append(&list, (void*)pval);
         }
 
         // Update the UI
-        draw_plot(head);
+        draw_plot(&list);
 
         // Sleep for remainder of time slice
         sleep(1);
