@@ -6,4 +6,4 @@ if [ $# -eq 1 ]
      COUNT=$1
 fi
 
-for (( i = 0; i <= $COUNT; i++)); do echo $i; done;
+for (( i = 1; i <= $COUNT; i++)); do echo $i; done;

@@ -16,6 +16,8 @@ pthread_cond_t cond1 = PTHREAD_COND_INITIALIZER;
 int data[BATCH_SIZE];
 int stdin_buffer_length = 0;
 
+WINDOW* mainwin = NULL;
+
 void* read_stdin_thread(void* vargp) {
     char* line = NULL;
     size_t size;
@@ -32,7 +34,28 @@ void* read_stdin_thread(void* vargp) {
 }
 
 void draw_plot(linked_list* n) {
-    printf("Linked list length: %d\n", list_length(n));
+    if(mainwin == NULL) {
+        // Initialize main window
+        printf("Initializing main window\n");
+        if((mainwin = initscr()) == NULL) {
+            perror("Failed to init ncurses");
+            exit(1);
+        }
+        noecho();
+    }
+
+    int num_rows, num_cols;
+    getmaxyx(mainwin, num_rows, num_cols);
+    wborder(mainwin, 0, 0, 0, 0, 0, 0, 0, 0);
+    //printf("length was: %d\n\r", list_length(n));
+    for(int i = 0; i < 10; i++) {
+        //mvwaddch(mainwin, 20, i*2, ACS_PI);
+        //mvwaddch(mainwin, 21, i*2 + 1, ACS_STERLING);
+    }
+
+    mvprintw(num_rows-1, 1, " Data size: %d ", list_length(n));
+    refresh();
+    //printf("Linked list length: %d\n", list_length(n));
     //print_list(n);
 }
 
@@ -67,31 +90,15 @@ int main() {
         sleep(1);
     }
 
+    endwin();
+    delwin(mainwin);
+
     pthread_join(thread_id, NULL);
     printf("Main thread exiting\n");
 
     return 0;
 
     /*
-    WINDOW* mainwin;
-    if((mainwin = initscr()) == NULL) {
-        perror("Failed to init ncurses");
-        exit(1);
-    }
-
-    noecho();
-
-    wborder(mainwin, 0, 0, 0, 0, 0, 0, 0, 0);
-    //box(stdscr, 0, 0);
-    for(int i = 0; i < 10; i++) {
-        mvwaddch(mainwin, 20, i*2, ACS_PI);
-        mvwaddch(mainwin, 21, i*2 + 1, ACS_STERLING);
-    }
-
-    refresh();
-    sleep(1);
-    endwin();
-    delwin(mainwin);
     */
 }
 
