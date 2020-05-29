@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <pthread.h>
 
+#include "array.h"
 #include "linked_list.h"
 
 #define BATCH_SIZE 1000000
@@ -17,6 +18,38 @@ int data[BATCH_SIZE];
 int stdin_buffer_length = 0;
 
 WINDOW* mainwin = NULL;
+
+void paint_graph(linked_list* n) {
+    int num_rows, num_cols;
+    getmaxyx(mainwin, num_rows, num_cols);
+
+}
+
+void paint(linked_list* n) {
+    if(mainwin == NULL) {
+        // Initialize main window
+        printf("Initializing main window\n");
+        if((mainwin = initscr()) == NULL) {
+            perror("Failed to init ncurses");
+            exit(1);
+        }
+        noecho();
+    }
+
+    int num_rows, num_cols;
+    getmaxyx(mainwin, num_rows, num_cols);
+    wborder(mainwin, 0, 0, 0, 0, 0, 0, 0, 0);
+    for(int i = 0; i < 10; i++) {
+        //mvwaddch(mainwin, 20, i*2, ACS_PI);
+        //mvwaddch(mainwin, 21, i*2 + 1, ACS_STERLING);
+    }
+    paint_graph(n);
+
+    mvprintw(num_rows-1, 1, " Data size: %d ", list_length(n));
+    refresh();
+    //printf("Linked list length: %d\n", list_length(n));
+    //print_list(n);
+}
 
 void* read_stdin_thread(void* vargp) {
     char* line = NULL;
@@ -33,33 +66,16 @@ void* read_stdin_thread(void* vargp) {
     return NULL;
 }
 
-void draw_plot(linked_list* n) {
-    if(mainwin == NULL) {
-        // Initialize main window
-        printf("Initializing main window\n");
-        if((mainwin = initscr()) == NULL) {
-            perror("Failed to init ncurses");
-            exit(1);
-        }
-        noecho();
-    }
-
-    int num_rows, num_cols;
-    getmaxyx(mainwin, num_rows, num_cols);
-    wborder(mainwin, 0, 0, 0, 0, 0, 0, 0, 0);
-    //printf("length was: %d\n\r", list_length(n));
-    for(int i = 0; i < 10; i++) {
-        //mvwaddch(mainwin, 20, i*2, ACS_PI);
-        //mvwaddch(mainwin, 21, i*2 + 1, ACS_STERLING);
-    }
-
-    mvprintw(num_rows-1, 1, " Data size: %d ", list_length(n));
-    refresh();
-    //printf("Linked list length: %d\n", list_length(n));
-    //print_list(n);
-}
-
 int main() {
+    array* a = malloc(sizeof(array));
+    init_array(a, 2);
+    for(int i = 0; i < 10000000; i++) {
+        data_point* dp = malloc(sizeof(data_point));
+        dp->val = i;
+        insert_array(a, dp);
+    }
+    return 0;
+
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, read_stdin_thread, NULL);
 
@@ -84,7 +100,7 @@ int main() {
         }
 
         // Update the UI
-        draw_plot(&list);
+        paint(&list);
 
         // Sleep for remainder of time slice
         sleep(1);
@@ -97,8 +113,5 @@ int main() {
     printf("Main thread exiting\n");
 
     return 0;
-
-    /*
-    */
 }
 
