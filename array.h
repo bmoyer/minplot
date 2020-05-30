@@ -7,8 +7,8 @@ typedef struct {
 
 typedef struct {
     data_point** array;
-    size_t used;
     size_t size;
+    size_t capacity;
 } array;
 
 void init_array(array* a, size_t initial_size);
