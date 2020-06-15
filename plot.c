@@ -9,9 +9,6 @@
 
 #include "array.h"
 
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
-
 #define BATCH_SIZE 1000000
 
 pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -25,67 +22,65 @@ WINDOW* mainwin = NULL;
 
 // Normalizes data with respect to x and y
 void summarize_bargraph(array* samples, int* result, int y, int x) {
-    /*
-    for(int i = 0; (i < samples->size) && (i < x); i++) {
-        result[i] = samples->array[i]->val;
-    }
-    */
-
-    int slice_size = MAX(samples->size / x, 1);
-    int cur_slice = 0;
-    for(int i = 0; i < samples->size && cur_slice < x; i+=slice_size) {
-        int avg = 0;
-        for(int j = i; j < (i+slice_size); j++) {
-            avg += samples->array[j]->val;
+    if(samples->size < x){
+        for(int i = 0; i < samples->size; i++) {
+            result[i] = samples->array[i]->val;
         }
-        avg /= slice_size;
-        result[cur_slice++] = avg;
+        return;
     }
-/*
+
+    int cur_slice = 0;
     double slice_size = (double) (samples->size) / (double) x;
-    //printf("slice size: %f, samples->size: %d -- %d\n", slice_size, samples->size, 0 < (double) (samples->size) );
-    for(double i = 0; i < (double) (samples->size); i+=slice_size) {
+    for(double i = 0; i < (double) (samples->size) - slice_size; i+=slice_size) {
         double start = i;
         double end = start + slice_size;
 
-       // double start_int, start_frac;
-        //start_frac = modf(start, &start_int);
-        double start_frac = ceil(start) - start;
-        double end_frac = 
+        double start_frac, end_frac;
+        if(ceil(start) == start) {
+            start_frac = 1.0;
+        }
+        else {
+            start_frac = ceil(start) - start;
+        }
+
+        if(ceil(end) == end) {
+            end_frac = 1.0;
+        }
+        else {
+            end_frac = 1.0 - (ceil(end) - end);
+        }
+        
+        double total = 0.0;
+        for(int i = (int)start; i <= (int)end; i++) {
+
+            if(i == (int)start) {
+                total += start_frac * (double) samples->array[i]->val;
+            }
+            else if(i == (int)(end)) {
+                total += end_frac * (double)samples->array[i]->val;
+            }
+            else {
+                total += (double)samples->array[i]->val;
+            }
+        }
+        total = round(total / slice_size);
+        result[cur_slice++] = total;
+        //fprintf(stderr, "start_frac %f end_frac %f (%f -> %f), %f\r\n", start_frac, end_frac, start, end, total);
     }
-    //printf("RETURN\n");
-    */
 }
 
 void paint_bargraph(array* samples) {
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
 
-    int* result = malloc(num_cols*sizeof(int));
+    int* result = malloc(num_cols*sizeof(int)*1);
     memset(result, 0, num_cols*sizeof(int));
     summarize_bargraph(samples, result, num_rows, num_cols);
-    for(int i = 0; i < 40; i++) {
-        //result[i] = i;
-        //result[i+40] = 40 - i;
-    }
+
     for(int i = 0; i < num_cols; i++)  {
         int height = result[i];
-        //printf("(x, y): (%d, %d)\n", i, height);
         for(int j = 0; j < height; j++) {
             mvwaddch(mainwin, num_rows - j - 2, i + 1, ACS_VLINE);
-            //mvwaddch(mainwin, num_rows - j - 2, 80, ACS_VLINE);
-        }
-        //int i = result[0];
-        //mvwaddch(mainwin, 10, 10, ACS_VLINE);
-    }
-    
-    //mvwprintw(mainwin, 20, 10, "%s", "THIS IS A TEST");
-
-    for(int i = 0; i < num_cols; i++) {
-        if(i < samples->size) {
-            for(int j = 0; j < samples->array[i]->val; j++) {
-                //mvwaddch(mainwin, num_rows - j - 2, i + 1, ACS_VLINE);
-            }
         }
     }
 }
@@ -101,6 +96,7 @@ void paint(array* samples) {
         noecho();
     }
 
+    erase();
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
     wborder(mainwin, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -150,7 +146,7 @@ int main() {
         paint(samples);
 
         // Sleep for remainder of time slice
-        sleep(1);
+        usleep(50000);
     }
 
     endwin();
