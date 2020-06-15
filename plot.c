@@ -6,10 +6,14 @@
 #include <pthread.h>
 #include <time.h>
 #include <math.h>
+#include <limits.h>
 
 #include "array.h"
 
 #define BATCH_SIZE 1000000
+
+#define MAX(x, y) (((x) > (y)) ? (x) : (y))
+#define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
 pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t done_reading_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -22,50 +26,73 @@ WINDOW* mainwin = NULL;
 
 // Normalizes data with respect to x and y
 void summarize_bargraph(array* samples, int* result, int y, int x) {
+    int num_slices = 0;
     if(samples->size < x){
         for(int i = 0; i < samples->size; i++) {
             result[i] = samples->array[i]->val;
+            num_slices++;
         }
-        return;
     }
+    else {
+        int cur_slice = 0;
+        double slice_size = (double) (samples->size) / (double) x;
+        for(double i = 0; i < (double) (samples->size) - slice_size; i+=slice_size) {
+            double start = i;
+            double end = start + slice_size;
 
-    int cur_slice = 0;
-    double slice_size = (double) (samples->size) / (double) x;
-    for(double i = 0; i < (double) (samples->size) - slice_size; i+=slice_size) {
-        double start = i;
-        double end = start + slice_size;
-
-        double start_frac, end_frac;
-        if(ceil(start) == start) {
-            start_frac = 1.0;
-        }
-        else {
-            start_frac = ceil(start) - start;
-        }
-
-        if(ceil(end) == end) {
-            end_frac = 1.0;
-        }
-        else {
-            end_frac = 1.0 - (ceil(end) - end);
-        }
-        
-        double total = 0.0;
-        for(int i = (int)start; i <= (int)end; i++) {
-
-            if(i == (int)start) {
-                total += start_frac * (double) samples->array[i]->val;
-            }
-            else if(i == (int)(end)) {
-                total += end_frac * (double)samples->array[i]->val;
+            double start_frac, end_frac;
+            if(ceil(start) == start) {
+                start_frac = 1.0;
             }
             else {
-                total += (double)samples->array[i]->val;
+                start_frac = ceil(start) - start;
             }
+
+            if(ceil(end) == end) {
+                end_frac = 1.0;
+            }
+            else {
+                end_frac = 1.0 - (ceil(end) - end);
+            }
+            
+            double total = 0.0;
+            for(int i = (int)start; i <= (int)end; i++) {
+                if(i == (int)start) {
+                    total += start_frac * (double) samples->array[i]->val;
+                }
+                else if(i == (int)(end)) {
+                    total += end_frac * (double)samples->array[i]->val;
+                }
+                else {
+                    total += (double)samples->array[i]->val;
+                }
+            }
+            total = round(total / slice_size);
+            result[cur_slice++] = total;
+            num_slices++;
+            //fprintf(stderr, "start_frac %f end_frac %f (%f -> %f), %f\r\n", start_frac, end_frac, start, end, total);
         }
-        total = round(total / slice_size);
-        result[cur_slice++] = total;
-        //fprintf(stderr, "start_frac %f end_frac %f (%f -> %f), %f\r\n", start_frac, end_frac, start, end, total);
+    }
+
+    // Now scale data in Y
+    int minVal = INT_MAX;
+    int maxVal = INT_MIN;
+
+    for(int i = 0; i < num_slices; i++) {
+        minVal = MIN(minVal, result[i]);
+        maxVal = MAX(maxVal, result[i]);
+    }
+    /*
+    double scaleY = floor(maxVal - 0) / y;
+
+    for(int i = 0; i < num_slices; i++) {
+        result[i] = round(result[i] / scaleY);
+    }
+    */
+    double scaleY = (maxVal - 0) / y;
+
+    for(int i = 0; i < num_slices; i++) {
+        result[i] = floor(result[i] / scaleY);
     }
 }
 
@@ -83,6 +110,7 @@ void paint_bargraph(array* samples) {
             mvwaddch(mainwin, num_rows - j - 2, i + 1, ACS_VLINE);
         }
     }
+    free(result);
 }
 
 void paint(array* samples) {
