@@ -25,20 +25,24 @@ int stdin_buffer_length = 0;
 WINDOW* mainwin = NULL;
 
 // Normalizes data with respect to x and y
-void summarize_bargraph(array* samples, int* result, int y, int x) {
+void summarize_bargraph(array* samples, int* result, double* scaleY, int y, int x) {
+    int minVal = INT_MAX;
+    int maxVal = INT_MIN;
     int num_slices = 0;
     if(samples->size < x){
         for(int i = 0; i < samples->size; i++) {
             result[i] = samples->array[i]->val;
+            minVal = MIN(minVal, samples->array[i]->val);
+            maxVal = MAX(maxVal, samples->array[i]->val);
             num_slices++;
         }
     }
     else {
         int cur_slice = 0;
         double slice_size = (double) (samples->size) / (double) x;
-        for(double i = 0; i < (double) (samples->size) - slice_size; i+=slice_size) {
+        for(double i = 0; i < (double) (samples->size) /*- slice_size*/; i+=slice_size) {
             double start = i;
-            double end = start + slice_size;
+            double end = MIN(start + slice_size, samples->size - 1);
 
             double start_frac, end_frac;
             if(ceil(start) == start) {
@@ -66,7 +70,10 @@ void summarize_bargraph(array* samples, int* result, int y, int x) {
                 else {
                     total += (double)samples->array[i]->val;
                 }
+                minVal = MIN(minVal, samples->array[i]->val);
+                maxVal = MAX(maxVal, samples->array[i]->val);
             }
+            //fprintf(stderr, "END WAS: %f\n", end);
             total = round(total / slice_size);
             result[cur_slice++] = total;
             num_slices++;
@@ -75,24 +82,24 @@ void summarize_bargraph(array* samples, int* result, int y, int x) {
     }
 
     // Now scale data in Y
-    int minVal = INT_MAX;
-    int maxVal = INT_MIN;
+    //int minVal = INT_MAX;
+    //int maxVal = INT_MIN;
 
+/*
     for(int i = 0; i < num_slices; i++) {
         minVal = MIN(minVal, result[i]);
         maxVal = MAX(maxVal, result[i]);
     }
-    /*
-    double scaleY = floor(maxVal - 0) / y;
-
-    for(int i = 0; i < num_slices; i++) {
-        result[i] = round(result[i] / scaleY);
-    }
     */
-    double scaleY = (maxVal - 0) / y;
+    //fprintf(stderr, "MAXVAL: %d\n", maxVal);
+
+    *scaleY = ((double)maxVal - 0.0) / (double)y;
+    if(maxVal <= y) {
+        *scaleY = 1.0;
+    }
 
     for(int i = 0; i < num_slices; i++) {
-        result[i] = floor(result[i] / scaleY);
+        result[i] = floor(result[i] / *scaleY);
     }
 }
 
@@ -100,17 +107,29 @@ void paint_bargraph(array* samples) {
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
 
+    double* scaleY = malloc(sizeof(double));
     int* result = malloc(num_cols*sizeof(int)*1);
     memset(result, 0, num_cols*sizeof(int));
-    summarize_bargraph(samples, result, num_rows, num_cols);
+    summarize_bargraph(samples, result, scaleY, num_rows, num_cols);
 
+    //fprintf(stderr, "SCALEY: %f\n", *scaleY);
     for(int i = 0; i < num_cols; i++)  {
         int height = result[i];
+        //fprintf(stderr, "HEIGHT: %d\n", height);
         for(int j = 0; j < height; j++) {
             mvwaddch(mainwin, num_rows - j - 2, i + 1, ACS_VLINE);
         }
     }
+
+    // Draw axis labels
+    mvprintw(num_rows-1, 0, "0.0");
+    mvprintw(1, 0, "%.2f", *scaleY * ((double)num_rows));
+
+    time_t ltime = time(NULL);
+    mvprintw(0, 2, " Data size: %d - %s", samples->size, asctime(localtime(&ltime)));
+
     free(result);
+    free(scaleY);
 }
 
 void paint(array* samples) {
@@ -131,8 +150,6 @@ void paint(array* samples) {
 
     paint_bargraph(samples);
 
-    time_t ltime = time(NULL);
-    mvprintw(0, 1, " Data size: %d - %s", samples->size, asctime(localtime(&ltime)));
     refresh();
 }
 
