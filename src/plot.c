@@ -7,6 +7,7 @@
 #include <time.h>
 #include <math.h>
 #include <limits.h>
+#include <signal.h>
 
 #include "array.h"
 
@@ -15,12 +16,16 @@
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
 
+typedef void (*sighandler_t)(int);
+
 pthread_mutex_t buffer_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t done_reading_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t buffer_empty = PTHREAD_COND_INITIALIZER;
 
 int data[BATCH_SIZE];
 int stdin_buffer_length = 0;
+
+sighandler_t previous_handler;
 
 WINDOW* mainwin = NULL;
 
@@ -106,36 +111,68 @@ void summarize_bargraph(array* samples, int* result, double* scaleY, int y, int 
 void paint_bargraph(array* samples) {
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
+    //num_rows -= 2; // don't use all terminal space for plot
+    //num_cols -= 2;
+
+    int data_height = num_rows - 2;
+    int data_width = num_cols - 2;
 
     double* scaleY = malloc(sizeof(double));
-    int* result = malloc(num_cols*sizeof(int)*1);
-    memset(result, 0, num_cols*sizeof(int));
-    summarize_bargraph(samples, result, scaleY, num_rows, num_cols);
+    int* result = malloc(data_width*sizeof(int));
+    memset(result, 0, data_width*sizeof(int));
+    summarize_bargraph(samples, result, scaleY, data_height, data_width);
 
     //fprintf(stderr, "SCALEY: %f\n", *scaleY);
-    for(int i = 0; i < num_cols; i++)  {
+    for(int i = 0; i < data_width; i++)  {
         int height = result[i];
         //fprintf(stderr, "HEIGHT: %d\n", height);
         for(int j = 0; j < height; j++) {
-            mvwaddch(mainwin, num_rows - j - 2, i + 1, ACS_VLINE);
+            mvwaddch(mainwin, data_height - j - 1, i + 1, ACS_VLINE);
         }
     }
 
-    // Draw axis labels
-    mvprintw(num_rows-1, 0, "0.0");
-    mvprintw(1, 0, "%.2f", *scaleY * ((double)num_rows));
+    // Draw axis numbers
+    double label_points[4] = {1.0, 0.75, 0.5, 0.25};
+    for(size_t i = 0; i < sizeof(label_points)/sizeof(label_points[0]); i++) {
+        //mvprintw(1, 2, "%.1f", *scaleY * ((double)data_height)); // 0.75
+        double val = (*scaleY * (double)data_height * label_points[i]);
+        int row = data_height - round(label_points[i] * (double) data_height) + 1;
+        mvprintw(row, 2, "%.1f", val); // 0.75
+    }
+    //mvprintw(1, 2, "%.1f", *scaleY * ((double)data_height)); // 0.75
+    //mvprintw(data_height/2 - 1, 2, "%.1f", *scaleY * ((double)data_height) *0.5); // 1/2
 
     time_t ltime = time(NULL);
-    mvprintw(0, 2, " Data size: %d - %s", samples->size, asctime(localtime(&ltime)));
+    char footer[100];
+    sprintf(footer, "Data size: %d - %s", samples->size, asctime(localtime(&ltime)));
+    mvprintw(num_rows-1, MAX(0, num_cols - strlen(footer) - 1), "%s", footer);
+    //mvprintw(num_rows-1, 0, "Data size: %d - %s", samples->size, asctime(localtime(&ltime)));
 
     free(result);
     free(scaleY);
 }
 
+void paint_axes() {
+    int num_rows, num_cols;
+    getmaxyx(mainwin, num_rows, num_cols);
+
+    for(int y = 2; y < num_rows-2; y++) {
+        mvwaddch(mainwin, y, 0, ACS_VLINE);
+    }
+
+    mvwaddch(mainwin, 1, 0, ACS_UARROW);
+    mvwaddch(mainwin, num_rows-2, 0, ACS_LLCORNER);
+
+    for(int x = 1; x < num_cols-3; x++) {
+        mvwaddch(mainwin, num_rows-2, x, ACS_HLINE);
+    }
+    mvwaddch(mainwin, num_rows-2, num_cols-2, ACS_RARROW);
+}
+
 void paint(array* samples) {
     if(mainwin == NULL) {
         // Initialize main window
-        printf("Initializing main window\n");
+        //printf("Initializing main window\n");
         if((mainwin = initscr()) == NULL) {
             perror("Failed to init ncurses");
             exit(1);
@@ -146,10 +183,13 @@ void paint(array* samples) {
     erase();
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
-    wborder(mainwin, 0, 0, 0, 0, 0, 0, 0, 0);
+
+    //wborder(mainwin, 0, 0, 0, 0, 0, 0, 0, 0);
+    paint_axes();
 
     paint_bargraph(samples);
 
+    curs_set(0);
     refresh();
 }
 
@@ -168,7 +208,19 @@ void* read_stdin_thread(void* vargp) {
     return NULL;
 }
 
+void resizeHandler(int sig) {
+    //fprintf(stderr, "RESIZE HANDLER\n");
+    /*
+    signal(sig, previous_handler);
+    raise(sig);
+    signal(sig, resizeHandler);
+    */
+        endwin();
+}
+
 int main() {
+    previous_handler = signal(SIGWINCH, resizeHandler);
+
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, read_stdin_thread, NULL);
 
@@ -191,7 +243,7 @@ int main() {
         paint(samples);
 
         // Sleep for remainder of time slice
-        usleep(50000);
+        usleep(5000);
     }
 
     endwin();

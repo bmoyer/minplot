@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-
-gcc -g plot.c linked_list.c array.c -lncurses -lpthread -lm
