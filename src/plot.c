@@ -12,6 +12,7 @@
 #include "array.h"
 
 #define BATCH_SIZE 1000000
+#define FRAME_INTERVAL_MS 15
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -78,25 +79,11 @@ void summarize_bargraph(array* samples, int* result, double* scaleY, int y, int 
                 minVal = MIN(minVal, samples->array[i]->val);
                 maxVal = MAX(maxVal, samples->array[i]->val);
             }
-            //fprintf(stderr, "END WAS: %f\n", end);
             total = round(total / slice_size);
             result[cur_slice++] = total;
             num_slices++;
-            //fprintf(stderr, "start_frac %f end_frac %f (%f -> %f), %f\r\n", start_frac, end_frac, start, end, total);
         }
     }
-
-    // Now scale data in Y
-    //int minVal = INT_MAX;
-    //int maxVal = INT_MIN;
-
-/*
-    for(int i = 0; i < num_slices; i++) {
-        minVal = MIN(minVal, result[i]);
-        maxVal = MAX(maxVal, result[i]);
-    }
-    */
-    //fprintf(stderr, "MAXVAL: %d\n", maxVal);
 
     *scaleY = ((double)maxVal - 0.0) / (double)y;
     if(maxVal <= y) {
@@ -111,8 +98,6 @@ void summarize_bargraph(array* samples, int* result, double* scaleY, int y, int 
 void paint_bargraph(array* samples) {
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
-    //num_rows -= 2; // don't use all terminal space for plot
-    //num_cols -= 2;
 
     int data_height = num_rows - 2;
     int data_width = num_cols - 2;
@@ -122,10 +107,8 @@ void paint_bargraph(array* samples) {
     memset(result, 0, data_width*sizeof(int));
     summarize_bargraph(samples, result, scaleY, data_height, data_width);
 
-    //fprintf(stderr, "SCALEY: %f\n", *scaleY);
     for(int i = 0; i < data_width; i++)  {
         int height = result[i];
-        //fprintf(stderr, "HEIGHT: %d\n", height);
         for(int j = 0; j < height; j++) {
             mvwaddch(mainwin, data_height - j - 1, i + 1, ACS_VLINE);
         }
@@ -139,14 +122,11 @@ void paint_bargraph(array* samples) {
         int row = data_height - round(label_points[i] * (double) data_height) + 1;
         mvprintw(row, 2, "%.1f", val); // 0.75
     }
-    //mvprintw(1, 2, "%.1f", *scaleY * ((double)data_height)); // 0.75
-    //mvprintw(data_height/2 - 1, 2, "%.1f", *scaleY * ((double)data_height) *0.5); // 1/2
 
     time_t ltime = time(NULL);
     char footer[100];
     sprintf(footer, "Data size: %d - %s", (int)samples->size, asctime(localtime(&ltime)));
     mvprintw(num_rows-1, MAX(0, num_cols - strlen(footer) - 1), "%s", footer);
-    //mvprintw(num_rows-1, 0, "Data size: %d - %s", samples->size, asctime(localtime(&ltime)));
 
     free(result);
     free(scaleY);
@@ -172,7 +152,6 @@ void paint_axes() {
 void paint(array* samples) {
     if(mainwin == NULL) {
         // Initialize main window
-        //printf("Initializing main window\n");
         if((mainwin = initscr()) == NULL) {
             perror("Failed to init ncurses");
             exit(1);
@@ -181,12 +160,8 @@ void paint(array* samples) {
     }
 
     erase();
-    int num_rows, num_cols;
-    getmaxyx(mainwin, num_rows, num_cols);
 
-    //wborder(mainwin, 0, 0, 0, 0, 0, 0, 0, 0);
     paint_axes();
-
     paint_bargraph(samples);
 
     curs_set(0);
@@ -209,13 +184,7 @@ void* read_stdin_thread(void* vargp) {
 }
 
 void resizeHandler(int sig) {
-    //fprintf(stderr, "RESIZE HANDLER\n");
-    /*
-    signal(sig, previous_handler);
-    raise(sig);
-    signal(sig, resizeHandler);
-    */
-        endwin();
+    endwin();
 }
 
 int main() {
@@ -226,7 +195,10 @@ int main() {
 
     array* samples = malloc(sizeof(array));
     init_array(samples, 10000);
+    struct timespec start_time;
+    struct timespec end_time;
     while(true) {
+        clock_gettime(CLOCK_REALTIME, &start_time);
         // Copy data from shared buffer into local buffer, reset size
         pthread_mutex_lock(&buffer_mutex);
 
@@ -241,9 +213,16 @@ int main() {
 
         // Update the UI
         paint(samples);
+        clock_gettime(CLOCK_REALTIME, &end_time);
 
-        // Sleep for remainder of time slice
-        usleep(5000);
+        long start_nsec = start_time.tv_sec * 1.0e9 + start_time.tv_nsec;
+        long end_nsec = end_time.tv_sec * 1.0e9 + end_time.tv_nsec;
+        long elapsed_ms = round((end_nsec - start_nsec) / 1.0e6);
+
+        if(elapsed_ms < FRAME_INTERVAL_MS) {
+            // Sleep for remainder of time slice
+            usleep ((FRAME_INTERVAL_MS - elapsed_ms) * 1000L);
+        }
     }
 
     endwin();
