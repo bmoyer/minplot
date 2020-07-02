@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+
+./generate 10 
+./generate 10 | tac
+./generate 20 
+./generate 20 | tac
+./generate 40 
+./generate 40 | tac
+
+./generate 10 
+./generate 10 | tac
+./generate 20 
+./generate 20 | tac
+./generate 40 
+./generate 40 | tac
+
+./generate 10 
+./generate 10 | tac
+./generate 20 
+./generate 20 | tac
+./generate 40 
+./generate 40 | tac

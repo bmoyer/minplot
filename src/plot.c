@@ -144,7 +144,7 @@ void paint_bargraph(array* samples) {
 
     time_t ltime = time(NULL);
     char footer[100];
-    sprintf(footer, "Data size: %d - %s", samples->size, asctime(localtime(&ltime)));
+    sprintf(footer, "Data size: %d - %s", (int)samples->size, asctime(localtime(&ltime)));
     mvprintw(num_rows-1, MAX(0, num_cols - strlen(footer) - 1), "%s", footer);
     //mvprintw(num_rows-1, 0, "Data size: %d - %s", samples->size, asctime(localtime(&ltime)));
 

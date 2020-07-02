@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+./generate 2000000
+./generate 500000
+./generate 500000 | tac
+for((i=0;i<400000;i++)) do echo 1500000; done;
