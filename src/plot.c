@@ -12,7 +12,7 @@
 #include "array.h"
 
 #define BATCH_SIZE 1000000
-#define FRAME_INTERVAL_MS 15
+#define FRAME_INTERVAL_MS 50
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
 #define MIN(x, y) (((x) < (y)) ? (x) : (y))
@@ -117,10 +117,9 @@ void paint_bargraph(array* samples) {
     // Draw axis numbers
     double label_points[4] = {1.0, 0.75, 0.5, 0.25};
     for(size_t i = 0; i < sizeof(label_points)/sizeof(label_points[0]); i++) {
-        //mvprintw(1, 2, "%.1f", *scaleY * ((double)data_height)); // 0.75
         double val = (*scaleY * (double)data_height * label_points[i]);
         int row = data_height - round(label_points[i] * (double) data_height) + 1;
-        mvprintw(row, 2, "%.1f", val); // 0.75
+        mvprintw(row, 2, "%.1f", val);
     }
 
     time_t ltime = time(NULL);
@@ -132,7 +131,7 @@ void paint_bargraph(array* samples) {
     free(scaleY);
 }
 
-void paint_axes() {
+void paint_axes(char* title) {
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
 
@@ -147,9 +146,12 @@ void paint_axes() {
         mvwaddch(mainwin, num_rows-2, x, ACS_HLINE);
     }
     mvwaddch(mainwin, num_rows-2, num_cols-2, ACS_RARROW);
+
+    // Paint title
+    mvprintw(0, (num_cols - strlen(title))/2, "%s", title);
 }
 
-void paint(array* samples) {
+void paint(char* title, array* samples) {
     if(mainwin == NULL) {
         // Initialize main window
         if((mainwin = initscr()) == NULL) {
@@ -161,7 +163,7 @@ void paint(array* samples) {
 
     erase();
 
-    paint_axes();
+    paint_axes(title);
     paint_bargraph(samples);
 
     curs_set(0);
@@ -187,8 +189,19 @@ void resizeHandler(int sig) {
     endwin();
 }
 
-int main() {
-    previous_handler = signal(SIGWINCH, resizeHandler);
+int main(int argc, char* argv[]) {
+    int opt;
+    char* title = "";
+    while((opt = getopt(argc, argv, "t:")) != -1) {
+        switch(opt) {
+            case 't':
+                //printf("Title: %s\n", optarg);
+                title = optarg;
+                break;
+            }
+    }
+
+    //previous_handler = signal(SIGWINCH, resizeHandler);
 
     pthread_t thread_id;
     pthread_create(&thread_id, NULL, read_stdin_thread, NULL);
@@ -212,7 +225,8 @@ int main() {
         pthread_mutex_unlock(&buffer_mutex);
 
         // Update the UI
-        paint(samples);
+        paint(title, samples);
+
         clock_gettime(CLOCK_REALTIME, &end_time);
 
         long start_nsec = start_time.tv_sec * 1.0e9 + start_time.tv_nsec;
@@ -229,7 +243,6 @@ int main() {
     delwin(mainwin);
 
     pthread_join(thread_id, NULL);
-    printf("Main thread exiting\n");
 
     return 0;
 }
