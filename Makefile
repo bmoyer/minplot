@@ -9,6 +9,8 @@ SRC=./src
 
 LIBS=-lncurses -lpthread -lm
 
+EXE=minplot
+
 _DEPS = linked_list.h array.h
 DEPS = $(patsubst %,$(IDIR)/%,$(_DEPS))
 
@@ -19,10 +21,10 @@ OBJ = $(patsubst %,$(ODIR)/%,$(_OBJ))
 $(ODIR)/%.o: $(SRC)/%.c $(DEPS)
 	$(CC) -c -o $@ $< $(CFLAGS)
 
-plot: $(OBJ)
+$(EXE): $(OBJ)
 	$(CC) -o $@ $^ $(CFLAGS) $(LIBS)
 
 .PHONY: clean
 
 clean:
-	rm -f $(ODIR)/*.o *~ core $(INCDIR)/*~ plot
+	rm -f $(ODIR)/*.o *~ core $(INCDIR)/*~ $(EXE)

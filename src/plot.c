@@ -95,6 +95,16 @@ void summarize_bargraph(array* samples, int* result, double* scaleY, int y, int 
     }
 }
 
+void paint_footer(array* samples) {
+    int num_rows, num_cols;
+    getmaxyx(mainwin, num_rows, num_cols);
+
+    time_t ltime = time(NULL);
+    char footer[100];
+    sprintf(footer, "Data size: %d - %s", (int)samples->size, asctime(localtime(&ltime)));
+    mvprintw(num_rows-1, MAX(0, num_cols - strlen(footer) - 1), "%s", footer);
+}
+
 void paint_bargraph(array* samples) {
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
@@ -121,11 +131,6 @@ void paint_bargraph(array* samples) {
         int row = data_height - round(label_points[i] * (double) data_height) + 1;
         mvprintw(row, 2, "%.1f", val);
     }
-
-    time_t ltime = time(NULL);
-    char footer[100];
-    sprintf(footer, "Data size: %d - %s", (int)samples->size, asctime(localtime(&ltime)));
-    mvprintw(num_rows-1, MAX(0, num_cols - strlen(footer) - 1), "%s", footer);
 
     free(result);
     free(scaleY);
@@ -165,6 +170,7 @@ void paint(char* title, array* samples) {
 
     paint_axes(title);
     paint_bargraph(samples);
+    paint_footer(samples);
 
     curs_set(0);
     refresh();
