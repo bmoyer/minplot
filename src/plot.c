@@ -9,6 +9,7 @@
 #include <limits.h>
 #include <signal.h>
 
+#include "plot.h"
 #include "array.h"
 
 #define BATCH_SIZE 1000000
@@ -105,7 +106,7 @@ void paint_footer(array* samples) {
     mvprintw(num_rows-1, MAX(0, num_cols - strlen(footer) - 1), "%s", footer);
 }
 
-void paint_bargraph(array* samples) {
+void paint_bargraph(array* samples, char character) {
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
 
@@ -120,7 +121,7 @@ void paint_bargraph(array* samples) {
     for(int i = 0; i < data_width; i++)  {
         int height = result[i];
         for(int j = 0; j < height; j++) {
-            mvwaddch(mainwin, data_height - j - 1, i + 1, ACS_VLINE);
+            mvwaddch(mainwin, data_height - j - 1, i + 1, character ? character : ACS_VLINE);
         }
     }
 
@@ -156,7 +157,7 @@ void paint_axes(char* title) {
     mvprintw(0, (num_cols - strlen(title))/2, "%s", title);
 }
 
-void paint(char* title, array* samples) {
+void paint(plot_params* params, array* samples) {
     if(mainwin == NULL) {
         // Initialize main window
         if((mainwin = initscr()) == NULL) {
@@ -168,8 +169,8 @@ void paint(char* title, array* samples) {
 
     erase();
 
-    paint_axes(title);
-    paint_bargraph(samples);
+    paint_axes(params->title);
+    paint_bargraph(samples, params->character);
     paint_footer(samples);
 
     curs_set(0);
@@ -197,12 +198,14 @@ void resizeHandler(int sig) {
 
 int main(int argc, char* argv[]) {
     int opt;
-    char* title = "";
-    while((opt = getopt(argc, argv, "t:")) != -1) {
+    plot_params params = {"", '\0'};
+    while((opt = getopt(argc, argv, "t:c:")) != -1) {
         switch(opt) {
             case 't':
-                //printf("Title: %s\n", optarg);
-                title = optarg;
+                params.title = optarg;
+                break;
+            case 'c':
+                params.character = (optarg[0]);
                 break;
             }
     }
@@ -231,7 +234,7 @@ int main(int argc, char* argv[]) {
         pthread_mutex_unlock(&buffer_mutex);
 
         // Update the UI
-        paint(title, samples);
+        paint(&params, samples);
 
         clock_gettime(CLOCK_REALTIME, &end_time);
 

@@ -29,3 +29,5 @@ make
 - Allow keyboard input for quitting, toggling axis markers, etc.
 - Allow more diverse input from stdin, possibly units
 - Handle terminal resizes better
+- Allow X-axis to represent things other than sample number: e.g., some user-given per-data-point X-value, or timestamp
+- Start Y-axis at minimum value in data set rather than 0
