@@ -106,7 +106,7 @@ void paint_footer(array* samples) {
     mvprintw(num_rows-1, MAX(0, num_cols - strlen(footer) - 1), "%s", footer);
 }
 
-void paint_bargraph(array* samples, char character) {
+void paint_bargraph(plot_params* params, array* samples) {
     int num_rows, num_cols;
     getmaxyx(mainwin, num_rows, num_cols);
 
@@ -118,10 +118,15 @@ void paint_bargraph(array* samples, char character) {
     memset(result, 0, data_width*sizeof(int));
     summarize_bargraph(samples, result, scaleY, data_height, data_width);
 
+    if(samples->size == 0) {
+        char* msg = "Waiting for data from stdin...";
+        mvprintw(num_rows/2, (num_cols - strlen(msg))/2, "%s", msg);
+    }
+
     for(int i = 0; i < data_width; i++)  {
         int height = result[i];
         for(int j = 0; j < height; j++) {
-            mvwaddch(mainwin, data_height - j - 1, i + 1, character ? character : ACS_VLINE);
+            mvwaddch(mainwin, data_height - j - 1, i + 1, params->character ? params->character : ACS_VLINE);
         }
     }
 
@@ -130,7 +135,7 @@ void paint_bargraph(array* samples, char character) {
     for(size_t i = 0; i < sizeof(label_points)/sizeof(label_points[0]); i++) {
         double val = (*scaleY * (double)data_height * label_points[i]);
         int row = data_height - round(label_points[i] * (double) data_height) + 1;
-        mvprintw(row, 2, "%.1f", val);
+        mvprintw(row, 2, "%.1f %s", val, params->unit);
     }
 
     free(result);
@@ -170,7 +175,7 @@ void paint(plot_params* params, array* samples) {
     erase();
 
     paint_axes(params->title);
-    paint_bargraph(samples, params->character);
+    paint_bargraph(params, samples);
     paint_footer(samples);
 
     curs_set(0);
@@ -196,10 +201,14 @@ void resizeHandler(int sig) {
     endwin();
 }
 
+void print_usage() {
+    printf("Usage: ./minplot [-u unit] [-c character] [-t title]\n");
+}
+
 int main(int argc, char* argv[]) {
     int opt;
-    plot_params params = {"", '\0'};
-    while((opt = getopt(argc, argv, "t:c:")) != -1) {
+    plot_params params = {"", "", '\0'};
+    while((opt = getopt(argc, argv, "t:c:u:h")) != -1) {
         switch(opt) {
             case 't':
                 params.title = optarg;
@@ -207,6 +216,12 @@ int main(int argc, char* argv[]) {
             case 'c':
                 params.character = (optarg[0]);
                 break;
+            case 'u':
+                params.unit = optarg;
+                break;
+            case 'h':
+                print_usage();
+                return 0;
             }
     }
 

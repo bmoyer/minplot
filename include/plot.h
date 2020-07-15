@@ -3,6 +3,7 @@
 
 typedef struct {
     char* title;
+    char* unit;
     char character;
 } plot_params;
 
